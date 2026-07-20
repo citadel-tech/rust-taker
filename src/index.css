@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+/* Design tokens — reconcile with the coinswap-taker Design-System.md.
+   Base palette carried over from the Electron app. */
+@theme {
+  --color-surface: #0f1419;
+  --color-surface-raised: #1a212b;
+  --color-accent: #ff6b35;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+body {
+  @apply bg-surface text-neutral-200 font-mono antialiased;
+}
