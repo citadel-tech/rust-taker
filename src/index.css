@@ -1,14 +1,77 @@
 @import "tailwindcss";
 
-/* Design tokens — reconcile with the coinswap-taker Design-System.md.
-   Base palette carried over from the Electron app. */
+/* Tokens copied exactly from taker-app/src/styles/input.css's real theme
+   block — NOT the coinswap-taker design prototype, which was never shipped
+   and uses a different (orange-primary) palette. This app is blue-primary,
+   monospace-by-default, matching the actual screenshots. */
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/JetBrainsMono-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --color-surface: #0f1419;
-  --color-surface-raised: #1a212b;
-  --color-accent: #ff6b35;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --color-bg: #101015;
+  --color-surface: #16161a;
+  --color-surface-raised: #1c1c22;
+  --color-secondary: #1c1d23;
+  --color-secondary-hover: #242832;
+
+  --color-line: #272a33;
+  --color-line-strong: #343846;
+
+  --color-foreground: #f4f7ff;
+  --color-muted: #a6adbb;
+  --color-subtle: #717987;
+
+  --color-primary: #518def;
+  --color-primary-hover: #6fa2ff;
+  --color-success: #2fd483;
+  --color-warning: #f5c451;
+  --color-danger: #ff5b6e;
+  --color-info: #518def;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {
-  @apply bg-surface text-neutral-200 font-mono antialiased;
+  @apply bg-bg text-foreground font-mono antialiased;
 }
