@@ -113,6 +113,32 @@ export function SelectableCard({
   );
 }
 
+export function SatsAmount({ sats, className = "" }: { sats: number; className?: string }) {
+  return (
+    <span className={`inline-flex items-baseline gap-1.5 ${className}`}>
+      <span>{Math.round(sats).toLocaleString()}</span>
+      <SatsGlyph className="text-subtle" />
+    </span>
+  );
+}
+
+/** Stylized sats glyph (a bar with 3 ticks), mirroring the old app's .cs-sats-symbol. */
+export function SatsGlyph({ className = "" }: { className?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label="satoshis"
+      className={`relative inline-block h-[1em] w-[0.72em] align-middle text-[0.72em] ${className}`}
+    >
+      <span className="absolute left-1/2 top-0 h-[0.14em] w-[0.14em] -translate-x-1/2 rounded-[1px] bg-current" />
+      <span className="absolute left-1/2 bottom-0 h-[0.14em] w-[0.14em] -translate-x-1/2 rounded-[1px] bg-current" />
+      <span className="absolute left-[0.04em] right-[0.04em] top-[0.245em] h-[0.1em] rounded-[1px] bg-current" />
+      <span className="absolute left-[0.04em] right-[0.04em] top-[0.45em] h-[0.1em] rounded-[1px] bg-current" />
+      <span className="absolute left-[0.04em] right-[0.04em] top-[0.655em] h-[0.1em] rounded-[1px] bg-current" />
+    </span>
+  );
+}
+
 export function WalletCard({ name, onClick }: { name: string; onClick: () => void }) {
   return (
     <button

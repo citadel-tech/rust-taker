@@ -1,7 +1,3 @@
-//! Shared backend state. See docs/BACKEND.md §5 for the threading rules.
-
-#![allow(dead_code)] // consumed incrementally as command modules land
-
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
@@ -45,7 +41,6 @@ pub struct AppState {
 
 pub struct ActiveSwap {
     pub swap_id: String,
-    pub summary: crate::types::SwapSummaryDto,
     pub phase: SwapLifecycle,
     pub started_at: Option<SystemTime>,
     pub error: Option<String>,

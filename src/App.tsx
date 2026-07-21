@@ -1,4 +1,7 @@
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AppShell } from "./components/app/AppShell";
+import { MarketPage } from "./pages/market/MarketPage";
+import { SettingsPage } from "./pages/settings/SettingsPage";
 import { SetupPage } from "./pages/setup/SetupPage";
 import { WalletPage } from "./pages/wallet/WalletPage";
 import { useSessionStore } from "./store/session";
@@ -13,8 +16,12 @@ function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<WalletPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route element={<AppShell />}>
+          <Route path="/" element={<WalletPage />} />
+          <Route path="/market" element={<MarketPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Routes>
     </HashRouter>
   );

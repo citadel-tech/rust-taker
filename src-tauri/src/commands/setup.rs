@@ -68,12 +68,18 @@ pub async fn check_bitcoin_core(rpc: RpcSettings) -> Result<CoreStatus, AppError
             };
             AppError::new(code, msg)
         })?;
+        let subversion = client
+            .get_network_info()
+            .map(|n| n.subversion)
+            .unwrap_or_default();
         Ok(CoreStatus {
             chain: info.chain.to_string(),
             blocks: info.blocks,
             headers: info.headers,
             initial_block_download: info.initial_block_download,
             synced: !info.initial_block_download && info.blocks == info.headers,
+            subversion,
+            verification_progress: info.verification_progress,
         })
     })
     .await
@@ -89,8 +95,8 @@ pub fn get_version_info(app: tauri::AppHandle) -> VersionInfo {
     }
 }
 
-/// Mirrors coinswap's own control-port handshake (docs/BACKEND.md §4.1).
-/// Bootstrap < 100% is informational only, not a failure.
+/// Mirrors coinswap's own control-port handshake. Bootstrap < 100% is
+/// informational only, not a failure.
 #[tauri::command]
 pub async fn check_tor(control_port: u16, tor_auth_password: String) -> Result<TorStatus, AppError> {
     tauri::async_runtime::spawn_blocking(move || run_tor_handshake(control_port, &tor_auth_password))

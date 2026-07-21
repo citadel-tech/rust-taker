@@ -18,6 +18,7 @@ dist-ssr
 .idea
 .DS_Store
 .claude/
+CLAUDE.md
 *.suo
 *.ntvs*
 *.njsproj

@@ -9,13 +9,15 @@ import { Button, PasswordField, TextField } from "../../components/ui/inputs";
 import { Eyebrow, Headline } from "../../components/ui/layout";
 import {
   RPC_HOST,
+  loadConnectivityDefaults,
+  saveConnectivityDefaults,
+  type ConnectivityConfig,
+} from "../../lib/connectivity";
+import {
   getDefaultDataDir,
   getDefaultWalletsDir,
-  loadConnectivityDefaults,
   loadDataDir,
-  saveConnectivityDefaults,
   saveDataDir,
-  type ConnectivityConfig,
   type WalletChoice,
 } from "./types";
 

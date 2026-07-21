@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
-/* Tokens copied exactly from taker-app/src/styles/input.css's real theme
-   block — NOT the coinswap-taker design prototype, which was never shipped
-   and uses a different (orange-primary) palette. This app is blue-primary,
-   monospace-by-default, matching the actual screenshots. */
+/* Tokens copied exactly from taker-app/src/styles/input.css — not the
+   coinswap-taker prototype, which uses a different (orange-primary) palette. */
 
 @font-face {
   font-family: "JetBrains Mono";
@@ -74,4 +72,13 @@
 
 body {
   @apply bg-bg text-foreground font-mono antialiased;
+}
+
+@keyframes market-progress {
+  0% {
+    transform: translateX(-72%);
+  }
+  100% {
+    transform: translateX(72%);
+  }
 }

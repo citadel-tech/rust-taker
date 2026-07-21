@@ -1,6 +1,3 @@
-// The single typed boundary to the backend. Components never call invoke()
-// directly — they import from here so command names/shapes live in one place.
-
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AddressType,

@@ -18,6 +18,8 @@ export interface CoreStatus {
   headers: number;
   initialBlockDownload: boolean;
   synced: boolean;
+  subversion: string;
+  verificationProgress: number;
 }
 
 export interface VersionInfo {
@@ -25,7 +27,6 @@ export interface VersionInfo {
   coinswapSource: string;
 }
 
-// Mirrors check_tor_status's exact wire protocol (docs/BACKEND.md §4.1/§9).
 // bootstrapProgress is informational only — coinswap's own init doesn't gate on it.
 export interface TorStatus {
   reachable: boolean;
@@ -119,6 +120,7 @@ export interface TxSummary {
   address?: string;
   time: number;
   feeSats?: number;
+  label?: string;
 }
 
 export interface UtxoEntry {
@@ -159,6 +161,11 @@ export interface Offer {
   minimumLocktime: number;
   maxSize: number;
   minSize: number;
+  bondAmountSats: number;
+  bondLocktimeHeight: number;
+  bondTxid: string;
+  bondVout: number;
+  bondIsSpent: boolean;
 }
 
 export interface Maker {

@@ -2,7 +2,7 @@
 //!
 //! Wallet load/restore commands must route errors through
 //! `from_wallet_join_error`, not `AppError::internal` — a wrong password
-//! panics inside the crate instead of returning `Result` (docs/BACKEND.md §7).
+//! panics inside the crate instead of returning `Result`.
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -321,6 +321,7 @@ pub async fn get_transactions(
                 address: tx.detail.address.map(|a| a.assume_checked().to_string()),
                 time: tx.info.time,
                 fee_sats: tx.detail.fee.map(|f| f.to_sat()),
+                label: tx.detail.label,
             })
             .collect())
     })

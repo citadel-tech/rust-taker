@@ -1,7 +1,7 @@
 //! Swap execution: two-phase prepare/start, coarse progress, recovery.
 //!
 //! No per-maker live progress — coinswap's tracker types are `pub(crate)`,
-//! so `get_swap_progress` only reports coarse lifecycle (docs/BACKEND.md §8).
+//! so `get_swap_progress` only reports coarse lifecycle.
 
 use std::str::FromStr;
 use std::time::SystemTime;
@@ -109,7 +109,6 @@ pub async fn prepare_swap(
     let dto = to_summary_dto(&summary);
     *state.active_swap.lock()? = Some(ActiveSwap {
         swap_id: summary.swap_id,
-        summary: dto.clone(),
         phase: SwapLifecycle::Prepared,
         started_at: None,
         error: None,

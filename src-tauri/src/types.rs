@@ -27,6 +27,10 @@ pub struct CoreStatus {
     pub initial_block_download: bool,
     /// true when headers == blocks and IBD is over
     pub synced: bool,
+    /// Core's version string, e.g. "/Satoshi:27.0.0/".
+    pub subversion: String,
+    /// [0..1] estimate of chain verification progress.
+    pub verification_progress: f64,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -142,6 +146,8 @@ pub struct TxSummary {
     pub address: Option<String>,
     pub time: u64,
     pub fee_sats: Option<i64>,
+    /// Core's wallet label for the receiving output, e.g. "watchonly_swapcoin".
+    pub label: Option<String>,
 }
 
 /// One UTXO plus its coinswap-specific spend-type classification.
@@ -196,6 +202,12 @@ pub struct OfferDto {
     pub minimum_locktime: u16,
     pub max_size: u64,
     pub min_size: u64,
+    pub bond_amount_sats: u64,
+    /// Absolute block height the bond unlocks at.
+    pub bond_locktime_height: u32,
+    pub bond_txid: String,
+    pub bond_vout: u32,
+    pub bond_is_spent: bool,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -267,7 +279,7 @@ pub struct SwapSummaryDto {
     pub estimated_receive_amount_sats: u64,
 }
 
-/// Coarse lifecycle snapshot — no per-maker progress yet (docs/BACKEND.md §8).
+/// Coarse lifecycle snapshot — no per-maker progress yet.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwapProgressDto {

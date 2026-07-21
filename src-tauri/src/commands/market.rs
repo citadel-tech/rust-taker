@@ -21,14 +21,23 @@ fn to_maker_dto(m: MakerOfferCandidate) -> MakerDto {
         MakerProtocol::Taproot => "taproot".to_string(),
         MakerProtocol::Unified => "unified".to_string(),
     });
-    let offer = m.offer.map(|o| OfferDto {
-        base_fee: o.base_fee,
-        amount_relative_fee_pct: o.amount_relative_fee_pct,
-        time_relative_fee_pct: o.time_relative_fee_pct,
-        required_confirms: o.required_confirms,
-        minimum_locktime: o.minimum_locktime,
-        max_size: o.max_size,
-        min_size: o.min_size,
+    let offer = m.offer.map(|o| {
+        let bond = &o.fidelity.bond;
+        let outpoint = bond.outpoint();
+        OfferDto {
+            base_fee: o.base_fee,
+            amount_relative_fee_pct: o.amount_relative_fee_pct,
+            time_relative_fee_pct: o.time_relative_fee_pct,
+            required_confirms: o.required_confirms,
+            minimum_locktime: o.minimum_locktime,
+            max_size: o.max_size,
+            min_size: o.min_size,
+            bond_amount_sats: bond.amount.to_sat(),
+            bond_locktime_height: bond.lock_time.to_consensus_u32(),
+            bond_txid: outpoint.txid.to_string(),
+            bond_vout: outpoint.vout,
+            bond_is_spent: bond.is_spent(),
+        }
     });
     MakerDto {
         address: m.address.to_string(),
