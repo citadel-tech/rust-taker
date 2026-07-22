@@ -194,7 +194,7 @@ export function SettingsPage() {
           <p className="mt-2 font-mono text-[10.5px] uppercase tracking-widest text-subtle">Wallet &amp; Network</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" onClick={() => setConfirmReset(true)}>
+          <Button variant="secondary" onClick={() => setConfirmReset(true)}>
             Reset to Defaults
           </Button>
           <Button onClick={() => void handleSave()}>
@@ -313,7 +313,7 @@ export function SettingsPage() {
                 />
               </div>
               <div className="mt-4 flex items-center gap-3">
-                <Button size="sm" variant="ghost" onClick={() => void testBitcoind()} loading={testingRpc}>
+                <Button size="sm" variant="secondary" onClick={() => void testBitcoind()} loading={testingRpc}>
                   Test Bitcoind
                 </Button>
               </div>
@@ -328,7 +328,7 @@ export function SettingsPage() {
               <pre className="mt-2 whitespace-pre-wrap rounded-lg border border-line bg-surface-raised p-3 font-mono text-[12px] text-muted">
                 {`zmqpubrawblock=tcp://127.0.0.1:${config.zmqPort}\nzmqpubrawtx=tcp://127.0.0.1:${config.zmqPort}`}
               </pre>
-              <Button variant="ghost" size="sm" className="mt-2.5 w-full justify-center" onClick={() => void copyZmqConfig()}>
+              <Button variant="secondary" size="sm" className="mt-2.5 w-full justify-center" onClick={() => void copyZmqConfig()}>
                 {copied ? <Check size={13} strokeWidth={2} /> : <Copy size={13} strokeWidth={2} />}
                 {copied ? "Copied!" : "Copy ZMQ Config"}
               </Button>
@@ -389,7 +389,7 @@ export function SettingsPage() {
             </div>
           </div>
           <div className="mt-4">
-            <Button size="sm" variant="ghost" onClick={() => void testTor()} loading={testingTor}>
+            <Button size="sm" variant="secondary" onClick={() => void testTor()} loading={testingTor}>
               Test Tor
             </Button>
           </div>
@@ -402,7 +402,7 @@ export function SettingsPage() {
           title="Reset all settings?"
           footer={
             <>
-              <Button variant="ghost" onClick={() => setConfirmReset(false)}>
+              <Button variant="secondary" onClick={() => setConfirmReset(false)}>
                 Cancel
               </Button>
               <Button onClick={handleResetConfirmed}>Reset</Button>

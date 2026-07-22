@@ -1,7 +1,7 @@
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes } from "react";
 
-type Variant = "primary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost";
 type Size = "md" | "sm";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -12,11 +12,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const buttonBase =
-  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50";
 
 const buttonVariants: Record<Variant, string> = {
   primary: "bg-primary text-white hover:bg-primary-hover",
-  ghost: "border border-line-strong text-muted hover:bg-white/5",
+  secondary: "border border-line bg-surface-raised text-foreground hover:border-line-strong",
+  ghost: "text-muted hover:text-foreground",
 };
 
 const buttonSizes: Record<Size, string> = {
@@ -64,8 +65,8 @@ export function TextField({ label, error, hint, id, className = "", ...props }: 
       </label>
       <input
         id={inputId}
-        className={`h-10 rounded-sm border bg-surface-raised px-3 text-[13px] text-foreground outline-none transition-colors placeholder:text-subtle ${
-          error ? "border-danger bg-danger/5" : "border-line focus:border-line-strong"
+        className={`h-10 rounded-control border bg-surface-raised px-3 text-[13px] text-foreground outline-none transition-colors duration-200 placeholder:text-subtle ${
+          error ? "border-danger bg-danger/5" : "border-line focus:border-primary focus:shadow-[0_0_0_3px_rgba(90,140,255,0.15)]"
         } ${className}`}
         {...props}
       />
@@ -104,8 +105,8 @@ export function PasswordField({
         <input
           id={inputId}
           type={visible ? "text" : "password"}
-          className={`h-10 w-full rounded-sm border bg-surface-raised px-3 pr-10 text-[13px] text-foreground outline-none transition-colors placeholder:text-subtle ${
-            error ? "border-danger bg-danger/5" : "border-line focus:border-line-strong"
+          className={`h-10 w-full rounded-control border bg-surface-raised px-3 pr-10 text-[13px] text-foreground outline-none transition-colors duration-200 placeholder:text-subtle ${
+            error ? "border-danger bg-danger/5" : "border-line focus:border-primary focus:shadow-[0_0_0_3px_rgba(90,140,255,0.15)]"
           } ${className}`}
           {...props}
         />
@@ -134,7 +135,7 @@ interface FieldChipProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "si
 /** Compact "LABEL: value" input for tight spaces; use TextField when a hint/error row is needed. */
 export function FieldChip({ label, className = "", ...props }: FieldChipProps) {
   return (
-    <div className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-raised px-3 py-2 focus-within:border-line-strong">
+    <div className="flex items-center gap-1.5 rounded-control border border-line bg-surface-raised px-3 py-2 transition-colors duration-200 focus-within:border-primary">
       <span className="whitespace-nowrap text-[11px] uppercase tracking-wide text-subtle">
         {label}:
       </span>

@@ -1,9 +1,12 @@
-import { ArrowDownLeft, ArrowUpRight, ExternalLink, RefreshCw } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ExternalLink } from "lucide-react";
+import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getBalances, getTransactions, getWalletInfo, listUtxos, syncWallet } from "../../api/commands";
-import type { Balances, TxSummary, UtxoEntry, WalletInfo } from "../../api/types";
-import { SatsAmount } from "../../components/ui/display";
+import { Card, SatsAmount } from "../../components/ui/display";
+import { useHeaderActionsStore } from "../../store/header-actions";
+import { isCacheStale, REFRESH_INTERVAL_MS, useWalletCacheStore } from "../../store/wallet-cache";
+import { withMinDelay } from "../../lib/timing";
 import {
   classifySpendType,
   explorerTxUrl,
@@ -30,46 +33,56 @@ function BalanceCard({
   hero?: boolean;
 }) {
   return (
-    <div
-      className={`flex min-h-[150px] flex-col justify-between rounded-2xl border border-line p-5 ${
-        hero
-          ? "min-h-[170px] bg-gradient-to-r from-primary/20 to-primary/[0.03]"
-          : "bg-surface"
-      }`}
+    <Card
+      className={`flex min-h-[150px] flex-col justify-between p-5 ${hero ? "min-h-[170px] border-primary/25" : "border-line-strong"}`}
     >
       <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">{label}</span>
-      <SatsAmount
-        sats={sats}
-        className={hero ? "text-[46px] font-bold tracking-tight text-primary" : "text-[28px] font-bold text-foreground"}
-      />
+      <div>
+        <SatsAmount
+          sats={sats}
+          className={hero ? "font-numeric text-[46px] font-bold tracking-tight text-primary" : "font-numeric text-[28px] font-bold text-foreground"}
+        />
+        {hero && <p className="mt-1 text-[13px] text-subtle">≈ {(sats / 1e8).toFixed(8)} BTC</p>}
+      </div>
       <p className="text-[13px] text-muted">{caption}</p>
-    </div>
+    </Card>
   );
 }
+
+const TAB_GLOW_TRANSITION = { type: "spring" as const, stiffness: 420, damping: 34, mass: 0.6 };
 
 function TabGroup<T extends string>({
   options,
   value,
   onChange,
+  groupId,
 }: {
   options: { value: T; label: string; count?: number }[];
   value: T;
   onChange: (v: T) => void;
+  groupId: string;
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-raised p-1">
+    <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.02] p-1">
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`min-h-[30px] whitespace-nowrap rounded-full px-3.5 text-[11.5px] font-medium transition-colors ${
-            value === opt.value ? "bg-primary text-white" : "text-muted hover:text-foreground"
+          className={`relative min-h-[30px] whitespace-nowrap rounded-full px-3.5 text-[11.5px] font-medium transition-colors ${
+            value === opt.value ? "text-primary" : "text-muted hover:text-foreground"
           }`}
         >
+          {value === opt.value && (
+            <motion.span
+              layoutId={`tabglow-${groupId}`}
+              transition={TAB_GLOW_TRANSITION}
+              className="absolute inset-0 -z-10 rounded-full bg-primary/15 shadow-[0_0_12px_rgba(90,140,255,0.35)]"
+            />
+          )}
           {opt.label}
           {opt.count !== undefined && (
-            <span className={`ml-1 font-mono text-[10px] ${value === opt.value ? "text-white/85" : "text-subtle"}`}>
+            <span className={`ml-1 font-mono text-[10px] ${value === opt.value ? "text-primary/80" : "text-subtle"}`}>
               {opt.count}
             </span>
           )}
@@ -88,7 +101,7 @@ function ExternalLinkButton({ txid }: { txid: string }) {
         e.stopPropagation();
         void openUrl(explorerTxUrl(txid));
       }}
-      className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-lg border border-line text-muted transition-colors hover:border-primary/60 hover:bg-primary/[0.14] hover:text-primary-hover"
+      className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-control border border-line text-muted transition-colors hover:border-primary/60 hover:bg-primary/[0.14] hover:text-primary-hover"
     >
       <ExternalLink size={16} strokeWidth={1.8} />
     </button>
@@ -109,17 +122,26 @@ const TYPE_PILL_CLASS: Record<string, string> = {
 
 function Pill({ label, className }: { label: string; className: string }) {
   return (
-    <span className={`w-fit rounded-md border px-2 py-0.5 font-mono text-[9.5px] ${className}`}>{label}</span>
+    <span className={`w-fit rounded-control border px-2 py-0.5 font-mono text-[9.5px] ${className}`}>{label}</span>
   );
 }
 
 export function WalletPage() {
-  const [info, setInfo] = useState<WalletInfo | null>(null);
-  const [balances, setBalances] = useState<Balances | null>(null);
-  const [utxos, setUtxos] = useState<UtxoEntry[]>([]);
-  const [transactions, setTransactions] = useState<TxSummary[]>([]);
+  const info = useWalletCacheStore((s) => s.info);
+  const balances = useWalletCacheStore((s) => s.balances);
+  const utxos = useWalletCacheStore((s) => s.utxos);
+  const transactions = useWalletCacheStore((s) => s.transactions);
+  const lastUpdated = useWalletCacheStore((s) => s.lastUpdated);
+  const setWalletCache = useWalletCacheStore((s) => s.setData);
+  const setLastUpdatedCache = useWalletCacheStore((s) => s.setLastUpdated);
+
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState("Just now");
+  // A fresh (non-stale) cache already means a real load happened recently, so
+  // skip the full loading screen and just refresh quietly behind the existing
+  // view. Past CACHE_TTL_MS the snapshot is treated as untrustworthy same as
+  // having none, so the loading screen reappears rather than flashing old
+  // balances as if they were current.
+  const [initialLoading, setInitialLoading] = useState(() => isCacheStale(useWalletCacheStore.getState().updatedAt));
 
   const [utxoFilter, setUtxoFilter] = useState<UtxoFilter>("all");
   const [txFilter, setTxFilter] = useState<TxFilter>("all");
@@ -133,11 +155,8 @@ export function WalletPage() {
       listUtxos(),
       getTransactions(50, 0),
     ]);
-    setInfo(nextInfo);
-    setBalances(nextBalances);
-    setUtxos(nextUtxos);
-    setTransactions(nextTx);
-  }, []);
+    setWalletCache({ info: nextInfo, balances: nextBalances, utxos: nextUtxos, transactions: nextTx });
+  }, [setWalletCache]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -148,19 +167,42 @@ export function WalletPage() {
         // Best-effort — stale data is still worth showing.
       }
       await load();
-      setLastUpdated("Just now");
+      setLastUpdatedCache("Just now");
     } finally {
       setRefreshing(false);
     }
-  }, [load]);
+  }, [load, setLastUpdatedCache]);
 
-  // The wallet's balance/UTXO/tx cache is only fresh after a sync, so the
-  // initial mount needs the same sync-then-load sequence as the Refresh
-  // button — a plain load() on mount reads stale/empty state.
+  // The wallet's balance/UTXO/tx cache is only fresh after a sync, so every
+  // mount needs the same sync-then-load sequence as the Refresh button — a
+  // plain load() reads stale/empty state. The full loading screen (with its
+  // min delay so it doesn't flash by unreadably) only runs when there's no
+  // cached data yet; later visits refresh quietly behind the cached view.
   useEffect(() => {
-    void refresh();
+    if (!initialLoading) {
+      void refresh();
+      return;
+    }
+    void withMinDelay(refresh(), 700).finally(() => setInitialLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    useHeaderActionsStore.getState().register(() => void refresh());
+    return () => useHeaderActionsStore.getState().register(null);
+  }, [refresh]);
+
+  // Keeps the cache from ever actually reaching CACHE_TTL_MS during a
+  // continuous session — real swaps/sends elsewhere shouldn't require the
+  // user to bounce off the page to see updated balances.
+  useEffect(() => {
+    const id = setInterval(() => void refresh(), REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  useEffect(() => {
+    useHeaderActionsStore.getState().setRefreshing(refreshing);
+  }, [refreshing]);
 
   const utxoCounts = useMemo(() => {
     const counts = { all: utxos.length, regular: 0, contract: 0, swap: 0 };
@@ -174,15 +216,13 @@ export function WalletPage() {
   }, [utxos]);
 
   const filteredUtxos = useMemo(() => {
-    if (utxoFilter === "all") return utxos.slice(0, 7);
-    return utxos
-      .filter((u) => {
-        const bucket = classifySpendType(u.spendType);
-        if (utxoFilter === "regular") return bucket === "Regular";
-        if (utxoFilter === "contract") return bucket === "Contract" || bucket === "Fidelity";
-        return bucket === "Swap";
-      })
-      .slice(0, 7);
+    if (utxoFilter === "all") return utxos;
+    return utxos.filter((u) => {
+      const bucket = classifySpendType(u.spendType);
+      if (utxoFilter === "regular") return bucket === "Regular";
+      if (utxoFilter === "contract") return bucket === "Contract" || bucket === "Fidelity";
+      return bucket === "Swap";
+    });
   }, [utxos, utxoFilter]);
 
   const filteredTx = useMemo(() => {
@@ -194,7 +234,7 @@ export function WalletPage() {
     } else {
       rows.sort((a, b) => (a.time - b.time) * dir);
     }
-    return rows.slice(0, 7);
+    return rows;
   }, [transactions, txFilter, txSort, sortDir]);
 
   function toggleSort(key: TxSortKey) {
@@ -207,47 +247,44 @@ export function WalletPage() {
 
   const totalBalance = (balances?.regular ?? 0) + (balances?.swap ?? 0);
 
-  return (
-    <div className="p-8">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[34px] font-bold leading-none tracking-tight text-foreground">Wallet</h1>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2 font-mono text-[10.5px] uppercase tracking-widest text-subtle">
-            <span>{info?.walletName ?? "—"}</span>
-            <span>.</span>
-            <span>{info?.dataDir ?? ""}</span>
-            <span>.</span>
-            <span>Synced {lastUpdated.toLowerCase()}</span>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          disabled={refreshing}
-          className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
-        >
-          <RefreshCw size={15} strokeWidth={2} className={refreshing ? "animate-spin" : ""} />
-          {refreshing ? "Refreshing" : "Refresh"}
-        </button>
-      </header>
+  if (initialLoading) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <span className="font-header text-[13px] uppercase tracking-widest text-muted">Loading wallet…</span>
+        <span className="relative h-[2px] w-48 overflow-hidden rounded-pill bg-line">
+          <span className="absolute inset-y-0 left-0 w-full origin-left animate-[status-fill_1.4s_ease-in-out_infinite] bg-success shadow-[0_0_8px_rgba(49,209,88,0.7)]" />
+        </span>
+      </div>
+    );
+  }
 
-      <section className="mt-6 grid grid-cols-[minmax(320px,1.45fr)_repeat(3,minmax(210px,1fr))] gap-3">
+  return (
+    <div className="flex h-full flex-col overflow-hidden px-8 pb-8 pt-2">
+      <div className="flex shrink-0 items-center gap-2 text-[13px] text-subtle">
+        <span className="h-[7px] w-[7px] rounded-full bg-success shadow-[0_0_8px_rgba(49,209,88,0.7)]" />
+        <span>Synced {lastUpdated.toLowerCase()}</span>
+        <span>·</span>
+        <span className="font-mono uppercase">{info?.walletName ?? "—"}</span>
+      </div>
+
+      <section className="mt-5 grid shrink-0 grid-cols-[minmax(320px,1.45fr)_repeat(3,minmax(210px,1fr))] gap-3">
         <BalanceCard label="Total Balance" sats={totalBalance} caption="Swap + Regular Coins" hero />
         <BalanceCard label="Swaps" sats={balances?.swap ?? 0} caption="Coins Received by swap txs" />
         <BalanceCard label="Regular" sats={balances?.regular ?? 0} caption="Coins Received by regular txs" />
         <BalanceCard label="Contracts" sats={balances?.contract ?? 0} caption="Coins stuck in HTLC" />
       </section>
 
-      <section className="mt-3 grid grid-cols-[minmax(0,1.46fr)_minmax(410px,1fr)] gap-3">
-        <article className="flex min-h-[520px] flex-col overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="mt-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1.46fr)_minmax(410px,1fr)] gap-3">
+        <Card className="flex min-h-0 flex-col border-line-strong">
           <header className="flex items-baseline gap-3 border-b border-line px-4.5 py-4">
-            <h3 className="text-[15px] font-semibold text-foreground">UTXOs</h3>
+            <h3 className="font-header text-[15px] font-bold text-foreground">UTXOs</h3>
             <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">
               {utxoCounts.all} unspent
             </span>
           </header>
-          <div className="flex flex-1 flex-col gap-3 overflow-hidden p-3.5">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3.5">
             <TabGroup
+              groupId="utxo-filter"
               value={utxoFilter}
               onChange={setUtxoFilter}
               options={[
@@ -264,7 +301,7 @@ export function WalletPage() {
               <span>Address</span>
               <span />
             </div>
-            <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+            <div className="flex flex-1 flex-col divide-y divide-line overflow-y-auto">
               {filteredUtxos.length === 0 && (
                 <p className="px-3 py-6 text-center text-[13px] text-subtle">No UTXOs match this filter.</p>
               )}
@@ -274,7 +311,7 @@ export function WalletPage() {
                 return (
                   <div
                     key={`${u.txid}:${u.vout}`}
-                    className="grid min-h-[58px] grid-cols-[1.35fr_0.58fr_0.58fr_1.1fr_52px] items-center gap-3 rounded-lg border border-line bg-surface-raised px-3 py-2.5"
+                    className="grid min-h-[58px] grid-cols-[1.35fr_0.58fr_0.58fr_1.1fr_52px] items-center gap-3 px-3 py-2.5 transition-colors duration-200 hover:bg-white/[0.04]"
                   >
                     <span className="flex min-w-0 flex-col gap-1">
                       <span className="truncate font-mono text-[12px] text-muted">
@@ -291,23 +328,19 @@ export function WalletPage() {
               })}
             </div>
           </div>
-          <footer className="border-t border-line px-4.5 py-3">
-            <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">
-              Last updated {lastUpdated.toLowerCase()}
-            </span>
-          </footer>
-        </article>
+        </Card>
 
-        <article className="flex min-h-[520px] flex-col overflow-hidden rounded-2xl border border-line bg-surface">
+        <Card className="flex min-h-0 flex-col border-line-strong">
           <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4.5 py-4">
             <div className="flex items-baseline gap-3">
-              <h3 className="text-[15px] font-semibold text-foreground">Recent transactions</h3>
+              <h3 className="font-header text-[15px] font-bold text-foreground">Recent transactions</h3>
               <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">
                 {transactions.length} total
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <TabGroup
+                groupId="tx-filter"
                 value={txFilter}
                 onChange={setTxFilter}
                 options={[
@@ -317,16 +350,23 @@ export function WalletPage() {
                   { value: "swap", label: "Swaps" },
                 ]}
               />
-              <div className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-raised p-1">
+              <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.02] p-1">
                 {(["newest", "amount"] as TxSortKey[]).map((key) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => toggleSort(key)}
-                    className={`flex min-h-[30px] items-center gap-1 whitespace-nowrap rounded-full px-3.5 text-[11.5px] font-medium transition-colors ${
-                      txSort === key ? "bg-primary text-white" : "text-muted hover:text-foreground"
+                    className={`relative flex min-h-[30px] items-center gap-1 whitespace-nowrap rounded-full px-3.5 text-[11.5px] font-medium transition-colors ${
+                      txSort === key ? "text-primary" : "text-muted hover:text-foreground"
                     }`}
                   >
+                    {txSort === key && (
+                      <motion.span
+                        layoutId="tabglow-tx-sort"
+                        transition={TAB_GLOW_TRANSITION}
+                        className="absolute inset-0 -z-10 rounded-full bg-primary/15 shadow-[0_0_12px_rgba(90,140,255,0.35)]"
+                      />
+                    )}
                     {key === "newest" ? "Newest" : "Amount"}
                     <span>{sortDir[key] === "desc" ? "↓" : "↑"}</span>
                   </button>
@@ -334,7 +374,7 @@ export function WalletPage() {
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto p-3.5 pr-2.5">
+          <div className="flex min-h-0 flex-1 flex-col divide-y divide-line overflow-y-auto px-3.5">
             {filteredTx.length === 0 && (
               <p className="px-3 py-6 text-center text-[13px] text-subtle">No transactions match this filter.</p>
             )}
@@ -342,15 +382,15 @@ export function WalletPage() {
               const isReceive = tx.amountSats >= 0;
               return (
                 <div
-                  key={tx.txid}
+                  key={`${tx.txid}:${tx.category}:${tx.address ?? ""}:${tx.amountSats}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => void openUrl(explorerTxUrl(tx.txid))}
                   onKeyDown={(e) => e.key === "Enter" && openUrl(explorerTxUrl(tx.txid))}
-                  className="grid min-h-[58px] cursor-pointer grid-cols-[38px_minmax(0,1fr)_auto_52px] items-center gap-3 rounded-lg border border-line bg-surface-raised px-3 py-2.5 text-left transition-colors hover:border-line-strong"
+                  className="grid min-h-[58px] cursor-pointer grid-cols-[38px_minmax(0,1fr)_auto_52px] items-center gap-3 px-0 py-2.5 text-left transition-colors duration-200 hover:bg-white/[0.04]"
                 >
                   <span
-                    className={`flex h-[34px] w-[34px] items-center justify-center rounded-lg border ${
+                    className={`flex h-[34px] w-[34px] items-center justify-center rounded-control border ${
                       isReceive
                         ? "border-success/45 bg-success/[0.08] text-success"
                         : "border-danger/45 bg-danger/[0.08] text-danger"
@@ -362,7 +402,7 @@ export function WalletPage() {
                     <span className="truncate font-mono text-[12px] text-muted">{truncateMiddle(tx.txid, 16, 8)}</span>
                     <span className="flex items-center gap-1.5">
                       <span
-                        className={`w-fit rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] tracking-wide ${
+                        className={`w-fit rounded-control border px-1.5 py-0.5 font-mono text-[9.5px] tracking-wide ${
                           tx.confirmations >= 6
                             ? "border-success/32 bg-success/10 text-success"
                             : "border-warning/35 bg-warning/10 text-warning"
@@ -384,10 +424,7 @@ export function WalletPage() {
               );
             })}
           </div>
-          <footer className="border-t border-line px-4.5 py-3">
-            <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">Live wallet</span>
-          </footer>
-        </article>
+        </Card>
       </section>
     </div>
   );

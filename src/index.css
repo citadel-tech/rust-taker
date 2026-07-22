@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Tokens copied exactly from taker-app/src/styles/input.css — not the
-   coinswap-taker prototype, which uses a different (orange-primary) palette. */
+/* Design tokens per .claude/newdesign.md v1.0 — the current design language.
+   Do not invent new colors/spacing/radii; extend this file instead. */
 
 @font-face {
   font-family: "JetBrains Mono";
@@ -38,40 +38,89 @@
   font-style: normal;
   font-display: swap;
 }
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./assets/fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("./assets/fonts/SpaceMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("./assets/fonts/SpaceMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme {
-  --color-bg: #101015;
-  --color-surface: #16161a;
-  --color-surface-raised: #1c1c22;
-  --color-secondary: #1c1d23;
-  --color-secondary-hover: #242832;
+  --color-bg: #0b0e13;
+  --color-surface: #121722;
+  --color-surface-raised: #171d2a;
+  --color-secondary: #171d2a;
+  --color-secondary-hover: #1c2230;
 
-  --color-line: #272a33;
-  --color-line-strong: #343846;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
 
-  --color-foreground: #f4f7ff;
-  --color-muted: #a6adbb;
-  --color-subtle: #717987;
+  --color-foreground: #f4f6fa;
+  --color-muted: #a2a9b8;
+  --color-subtle: #72798a;
 
-  --color-primary: #518def;
-  --color-primary-hover: #6fa2ff;
-  --color-success: #2fd483;
+  --color-primary: #5a8cff;
+  --color-primary-hover: #6b98ff;
+  --color-success: #31d158;
   --color-warning: #f5c451;
-  --color-danger: #ff5b6e;
-  --color-info: #518def;
+  --color-danger: #ff5a5f;
+  --color-info: #5a8cff;
 
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-pill: 999px;
+  /* Named per newdesign.md so intent stays obvious at call sites. */
+  --radius-card: 20px;
+  --radius-control: 14px;
 
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-header: "Space Mono", ui-monospace, monospace;
+  --font-numeric: "JetBrains Mono", ui-monospace, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {
   @apply bg-bg text-foreground font-mono antialiased;
+}
+
+/* Tailwind's preflight sets -webkit-appearance: button (not none), so WebKit still
+   paints its native button chrome under our own styles — invisible in Chromium, but
+   in Safari/WKWebView (what Tauri actually renders with) it shows as a dark box
+   wherever a <button> sits on a translucent surface. */
+button {
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 @keyframes market-progress {
@@ -80,5 +129,14 @@ body {
   }
   100% {
     transform: translateX(72%);
+  }
+}
+
+@keyframes status-fill {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
   }
 }

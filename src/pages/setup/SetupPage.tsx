@@ -1,4 +1,4 @@
-import { GlowBackdrop, Shell } from "../../components/ui/layout";
+import { Background, Shell } from "../../components/ui/layout";
 import { useSessionStore } from "../../store/session";
 import { SelectWalletStep } from "./SelectWalletStep";
 
@@ -7,7 +7,7 @@ export function SetupPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-6 py-10">
-      <GlowBackdrop />
+      <Background />
       <div className="relative w-full max-w-2xl">
         <Shell title="Coinswap · Taker" status="Onboarding">
           <SelectWalletStep onSuccess={setInitialized} />

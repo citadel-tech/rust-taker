@@ -1,5 +1,6 @@
 import { CircleAlert } from "lucide-react";
 import type { ReactNode } from "react";
+import { Card } from "./display";
 
 interface ShellProps {
   title: string;
@@ -9,24 +10,36 @@ interface ShellProps {
 
 export function Shell({ title, status, children }: ShellProps) {
   return (
-    <div className="relative rounded-3xl border border-line bg-surface/80 backdrop-blur-xl">
+    <Card className="border-line-strong">
       <div className="flex items-center justify-between border-b border-line px-8 py-4">
-        <span className="text-[11px] uppercase tracking-widest text-subtle">{title}</span>
-        <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-primary">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className="font-header text-[11px] uppercase tracking-widest text-subtle">{title}</span>
+        <span className="flex items-center gap-1.5 font-header text-[11px] uppercase tracking-widest text-primary">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(90,140,255,0.7)]" />
           {status}
         </span>
       </div>
       {children}
-    </div>
+    </Card>
   );
 }
 
-/** Ambient background glow; kept as a component instead of global CSS. */
-export function GlowBackdrop() {
+/** Solid base + one soft left-of-center glow (fades in all directions, no hard edge) + a barely-there dotted grid. */
+export function Background() {
   return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden">
-      <div className="absolute -bottom-40 -left-40 h-[560px] w-[560px] rounded-full bg-primary/20 blur-[120px]" />
+    <div className="pointer-events-none fixed inset-0 overflow-hidden bg-bg">
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse 75% 65% at 22% 58%, rgba(90,140,255,0.18), transparent 70%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+        }}
+      />
     </div>
   );
 }
@@ -43,19 +56,10 @@ export function FooterBar({ children }: { children: ReactNode }) {
   );
 }
 
-export function Eyebrow({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-[11px] uppercase tracking-wide text-muted">
-      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-      {label}
-    </span>
-  );
-}
-
 /** e.g. <Headline text="Let's get you" accent="connected." /> */
 export function Headline({ text, accent }: { text: string; accent: string }) {
   return (
-    <h1 className="text-[32px] font-bold leading-tight text-foreground">
+    <h1 className="font-header text-[32px] font-bold leading-tight text-foreground">
       {text} <em className="italic text-primary">{accent}</em>
     </h1>
   );
@@ -65,12 +69,12 @@ export function ProgressBar({ step, total }: { step: number; total: number }) {
   const pct = Math.round((step / total) * 100);
   return (
     <div className="flex items-center gap-3">
-      <span className="whitespace-nowrap text-[11px] uppercase tracking-wide text-subtle">
+      <span className="whitespace-nowrap font-header text-[11px] uppercase tracking-wide text-subtle">
         Step {step} of {total}
       </span>
-      <div className="h-1 flex-1 rounded-full bg-line">
+      <div className="h-1 flex-1 rounded-pill bg-line">
         <div
-          className="h-full rounded-full bg-primary transition-[width]"
+          className="h-full rounded-pill bg-primary transition-[width]"
           style={{ width: `${pct}%` }}
         />
       </div>

@@ -6,7 +6,8 @@ import { checkBitcoinCore, checkTor, initTaker, listWallets, restoreWallet } fro
 import type { AppError, InitResult } from "../../api/types";
 import { Modal, StatusRow, WalletCard, type CheckState } from "../../components/ui/display";
 import { Button, PasswordField, TextField } from "../../components/ui/inputs";
-import { Eyebrow, Headline } from "../../components/ui/layout";
+import { Headline } from "../../components/ui/layout";
+import { wait, withMinDelay } from "../../lib/timing";
 import {
   RPC_HOST,
   loadConnectivityDefaults,
@@ -54,24 +55,9 @@ function isAppError(e: unknown): e is AppError {
   return typeof e === "object" && e !== null && "code" in e;
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // Local checks (RPC/Tor/wallet unlock) often resolve in well under 100ms,
-// which makes the sequential checklist flash by unreadably. Hold each step
-// visible for at least this long so the user can actually see it happen.
+// which makes the sequential checklist flash by unreadably.
 const MIN_STEP_MS = 900;
-
-async function withMinDelay<T>(promise: Promise<T>, ms = MIN_STEP_MS): Promise<T> {
-  const start = Date.now();
-  try {
-    return await promise;
-  } finally {
-    const elapsed = Date.now() - start;
-    if (elapsed < ms) await wait(ms - elapsed);
-  }
-}
 
 function onEnter(fn: () => void) {
   return (e: KeyboardEvent<HTMLInputElement>) => {
@@ -166,7 +152,7 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
     };
 
     try {
-      await withMinDelay(checkBitcoinCore(rpc));
+      await withMinDelay(checkBitcoinCore(rpc), MIN_STEP_MS);
     } catch (e) {
       setSteps((s) => ({ ...s, rpc: "failed" }));
       setFailure({ stage: "rpc", message: (e as { message?: string })?.message ?? "Could not reach Bitcoin Core." });
@@ -182,13 +168,16 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
             throw new Error(status.error ?? "Tor control port unreachable.");
           }
         })(),
+        MIN_STEP_MS,
       );
     } catch (e) {
       setSteps((s) => ({ ...s, tor: "failed" }));
       setFailure({ stage: "tor", message: (e as { message?: string })?.message ?? "Could not reach Tor." });
       return;
     }
-    setSteps((s) => ({ ...s, tor: "passed", verify: "running", init: "running" }));
+    setSteps((s) => ({ ...s, tor: "passed", verify: "running" }));
+    await wait(MIN_STEP_MS);
+    setSteps((s) => ({ ...s, verify: "passed", init: "running" }));
 
     try {
       const result = await withMinDelay(
@@ -208,8 +197,9 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
             dataDir,
           });
         })(),
+        MIN_STEP_MS,
       );
-      setSteps((s) => ({ ...s, verify: "passed", init: "passed" }));
+      setSteps((s) => ({ ...s, init: "passed" }));
       saveConnectivityDefaults(connectivity);
       onSuccess(result);
     } catch (e) {
@@ -238,11 +228,10 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
   }
 
   return (
-    <div className="p-8">
-      <Eyebrow label="Welcome" />
-      <div className="mt-4">
+    <div className="p-8 text-center">
+      <div>
         <Headline text="Select your" accent="wallet." />
-        <p className="mt-2 max-w-lg text-[13.5px] text-muted">
+        <p className="mx-auto mt-2 max-w-lg text-[13.5px] text-muted">
           Pick a wallet to unlock, or create a new one to get started.
         </p>
       </div>
@@ -252,7 +241,7 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
           {loadingWallets ? (
             <p className="text-[13px] text-muted">Looking for wallets…</p>
           ) : wallets.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-line-strong px-8 py-10 text-center">
+            <div className="rounded-card border border-dashed border-line-strong px-8 py-10 text-center">
               <p className="text-[14px] font-medium text-foreground">No wallets found</p>
               <p className="mt-1 text-[12.5px] text-muted">
                 Create a new wallet to get started, or point the app at a different folder.
@@ -262,24 +251,24 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
               </Button>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               {wallets.map((name) => (
                 <WalletCard key={name} name={name} onClick={() => selectWallet(name)} />
               ))}
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
-            <Button variant="ghost" size="sm" onClick={changeLocation}>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2 border-t border-line pt-5">
+            <Button variant="secondary" size="sm" onClick={changeLocation}>
               <FolderOpen size={14} strokeWidth={1.8} />
               Change location
             </Button>
-            <Button variant="ghost" size="sm" onClick={loadWalletFile}>
+            <Button variant="secondary" size="sm" onClick={loadWalletFile}>
               <FolderPlus size={14} strokeWidth={1.8} />
               Load wallet
             </Button>
             {wallets.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setViewMode("create")}>
+              <Button variant="secondary" size="sm" onClick={() => setViewMode("create")}>
                 <Plus size={14} strokeWidth={1.8} />
                 Create new wallet
               </Button>
@@ -290,7 +279,7 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
       )}
 
       {viewMode === "unlock" && selectedWallet && (
-        <div className="mt-8 max-w-sm">
+        <div className="mx-auto mt-8 max-w-sm">
           <p className="text-[14px] font-semibold text-foreground">{selectedWallet}</p>
           <div className="mt-4">
             <PasswordField
@@ -303,10 +292,10 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
             />
           </div>
           <div className="mt-5 flex gap-3">
-            <Button variant="ghost" onClick={() => setViewMode("grid")}>
+            <Button variant="secondary" className="flex-1" onClick={() => setViewMode("grid")}>
               Back
             </Button>
-            <Button disabled={!unlockPassword} onClick={submitUnlock}>
+            <Button className="flex-1" disabled={!unlockPassword} onClick={submitUnlock}>
               Unlock
             </Button>
           </div>
@@ -314,7 +303,7 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
       )}
 
       {viewMode === "create" && (
-        <div className="mt-8 max-w-sm">
+        <div className="mx-auto mt-8 max-w-sm">
           <p className="text-[14px] font-semibold text-foreground">Create new wallet</p>
           <div className="mt-4 flex flex-col gap-4">
             <TextField
@@ -337,16 +326,16 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
             />
           </div>
           <div className="mt-5 flex gap-3">
-            <Button variant="ghost" onClick={() => setViewMode("grid")}>
+            <Button variant="secondary" className="flex-1" onClick={() => setViewMode("grid")}>
               Back
             </Button>
-            <Button onClick={submitCreate}>Create &amp; continue</Button>
+            <Button className="flex-1" onClick={submitCreate}>Create &amp; continue</Button>
           </div>
         </div>
       )}
 
       {viewMode === "checking" && (
-        <div className="mt-8 flex max-w-sm flex-col gap-2.5">
+        <div className="mx-auto mt-8 flex max-w-sm flex-col gap-2.5">
           <StatusRow label="Checking Bitcoin Core" state={steps.rpc} />
           <StatusRow label="Checking Tor" state={steps.tor} />
           <StatusRow label="Verifying wallet password" state={steps.verify} />
@@ -365,7 +354,7 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
           }
           footer={
             <>
-              <Button variant="ghost" onClick={cancelFailure}>
+              <Button variant="secondary" onClick={cancelFailure}>
                 Cancel
               </Button>
               <Button onClick={retry}>Retry</Button>

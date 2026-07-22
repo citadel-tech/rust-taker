@@ -1,63 +1,140 @@
-import { CheckCircle2, X, XCircle } from "lucide-react";
+import { Check, CheckCircle2, RefreshCw, Settings, X, XCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { Background } from "../ui/layout";
+import { useHeaderActionsStore } from "../../store/header-actions";
 import { useToastStore } from "../../store/toast";
 
-// Exact icon paths ported from taker-app/src/components/Nav.js so the
-// sidebar matches the shipped app pixel-for-pixel.
 const NAV_ITEMS: { path: string; label: string; d: string }[] = [
   { path: "/", label: "Wallet", d: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M16 14h2"/>' },
   { path: "/market", label: "Market", d: '<path d="M4 19V9M10 19V5M16 19v-7M22 19V8"/>' },
   { path: "/send", label: "Send", d: '<path d="M7 17L17 7M9 7h8v8"/>' },
-  { path: "/receive", label: "Receive", d: '<path d="M17 7L7 17M7 9v8h8"/>' },
   { path: "/swap", label: "Swap", d: '<path d="M17 4l4 4-4 4M21 8H8M7 20l-4-4 4-4M3 16h13"/>' },
-  { path: "/recovery", label: "Recovery", d: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M9 12l2 2 4-4"/>' },
-  { path: "/settings", label: "Settings", d: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1A2 2 0 0 1 3.4 17l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H2"/>' },
 ];
 
-function Sidebar() {
+function Logo() {
   return (
-    <aside className="flex h-screen w-[220px] flex-none flex-col border-r border-line bg-[#0b0b0f]">
-      <div className="grid min-h-[124px] grid-cols-[40px_1fr] items-start gap-3 border-b border-white/[0.075] px-5 pb-4.5 pt-7">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary font-mono text-[17px] font-extrabold text-white">
-          C
-        </div>
-        <div className="min-w-0 pt-0.5">
-          <h1 className="font-mono text-[17px] font-extrabold leading-tight text-primary">Coinswap</h1>
-          <p className="mt-2.5 whitespace-nowrap font-mono text-[9.5px] uppercase tracking-[0.14em] text-[#7b8391]">
-            Taker app
-          </p>
-        </div>
+    <div className="flex items-center gap-3">
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary font-header text-[15px] font-bold text-white">
+        T
       </div>
+      <div className="min-w-0 leading-tight">
+        <div className="font-header text-[15px] font-bold text-foreground">Taker</div>
+        <div className="text-[11px] text-subtle">Coinswap Protocol</div>
+      </div>
+    </div>
+  );
+}
 
-      <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 pb-5 pt-3.5" aria-label="Main navigation">
+function TopNav() {
+  const onRefresh = useHeaderActionsStore((s) => s.onRefresh);
+  const refreshing = useHeaderActionsStore((s) => s.refreshing);
+  const [justRefreshed, setJustRefreshed] = useState(false);
+  const wasRefreshing = useRef(refreshing);
+
+  useEffect(() => {
+    if (wasRefreshing.current && !refreshing) {
+      setJustRefreshed(true);
+      const t = setTimeout(() => setJustRefreshed(false), 1600);
+      wasRefreshing.current = refreshing;
+      return () => clearTimeout(t);
+    }
+    wasRefreshing.current = refreshing;
+  }, [refreshing]);
+
+  return (
+    <header
+      className="sticky top-0 z-30 flex flex-none items-center justify-between gap-6 px-8 py-5"
+      style={{
+        background:
+          "linear-gradient(to bottom, rgba(11,14,19,0.92) 0%, rgba(11,14,19,0.92) 65%, rgba(11,14,19,0) 100%)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <Logo />
+
+      <nav className="flex items-center gap-1" aria-label="Main navigation">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === "/"}
             className={({ isActive }) =>
-              `flex min-h-10 items-center gap-2.5 rounded-lg border px-3 text-[13px] font-medium transition-colors ${
-                isActive
-                  ? "border-primary bg-primary text-white"
-                  : "border-transparent text-muted hover:border-white/[0.08] hover:bg-white/[0.04] hover:text-foreground"
+              `relative flex items-center gap-2 rounded-control px-3.5 py-2 text-[13.5px] transition-colors duration-200 ${
+                isActive ? "font-semibold text-primary" : "font-medium text-muted hover:text-foreground"
               }`
             }
           >
-            <svg
-              className="h-4 w-4 flex-none stroke-current"
-              viewBox="0 0 24 24"
-              fill="none"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              dangerouslySetInnerHTML={{ __html: item.d }}
-            />
-            <span>{item.label}</span>
+            {({ isActive }) => (
+              <>
+                <svg
+                  className="h-4 w-4 flex-none stroke-current"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  dangerouslySetInnerHTML={{ __html: item.d }}
+                />
+                <span>{item.label}</span>
+                {isActive && (
+                  <>
+                    <motion.span
+                      layoutId="nav-active-glow"
+                      transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.6 }}
+                      className="pointer-events-none absolute -inset-x-14 -bottom-4 -z-10 h-10 blur-md"
+                      style={{
+                        background:
+                          "radial-gradient(ellipse 50% 100% at 50% 0%, rgba(90,140,255,0.5) 0%, rgba(90,140,255,0.18) 50%, transparent 100%)",
+                      }}
+                    />
+                    <motion.span
+                      layoutId="nav-active-line"
+                      transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.6 }}
+                      className="pointer-events-none absolute -inset-x-10 -bottom-1.5 h-px"
+                      style={{
+                        background: "linear-gradient(to right, transparent, rgba(111,162,255,0.85), transparent)",
+                      }}
+                    />
+                  </>
+                )}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
-    </aside>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onRefresh?.()}
+          disabled={!onRefresh}
+          title="Refresh"
+          className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+            justRefreshed ? "text-success" : "text-muted hover:text-foreground"
+          }`}
+        >
+          {justRefreshed ? (
+            <Check size={16} strokeWidth={2} />
+          ) : (
+            <RefreshCw size={16} strokeWidth={1.8} className={refreshing ? "animate-spin" : ""} />
+          )}
+        </button>
+        <NavLink
+          to="/settings"
+          title="Settings"
+          className={({ isActive }) =>
+            `flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-200 ${
+              isActive ? "text-primary" : "text-muted hover:text-foreground"
+            }`
+          }
+        >
+          <Settings size={16} strokeWidth={1.8} />
+        </NavLink>
+      </div>
+    </header>
   );
 }
 
@@ -72,7 +149,7 @@ function ToastStack() {
         <div
           key={t.id}
           style={{ transform: `translateY(${i * 56}px)` }}
-          className={`pointer-events-auto absolute right-0 top-0 flex w-[420px] max-w-[calc(100vw-2rem)] items-start gap-3 rounded-xl border px-4 py-3.5 transition-transform ${
+          className={`pointer-events-auto absolute right-0 top-0 flex w-[420px] max-w-[calc(100vw-2rem)] items-start gap-3 rounded-card border px-4 py-3.5 transition-transform ${
             t.kind === "error"
               ? "border-danger/32 bg-danger/[0.18] text-foreground"
               : "border-success/32 bg-success/[0.14] text-foreground"
@@ -98,11 +175,14 @@ function ToastStack() {
 
 export function AppShell() {
   return (
-    <div className="flex h-screen bg-bg">
-      <Sidebar />
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+    <div className="relative h-screen">
+      <Background />
+      <div className="relative flex h-screen flex-col">
+        <TopNav />
+        <main className="min-h-0 min-w-0 flex-1">
+          <Outlet />
+        </main>
+      </div>
       <ToastStack />
     </div>
   );

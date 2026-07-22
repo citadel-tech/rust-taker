@@ -1,9 +1,10 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Inbox, RefreshCw, Search } from "lucide-react";
+import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getOffers, pollMaker, removeMaker, syncOfferbook } from "../../api/commands";
 import type { Maker } from "../../api/types";
-import { Modal, SatsAmount } from "../../components/ui/display";
+import { Card, Modal, SatsAmount } from "../../components/ui/display";
 import { Button } from "../../components/ui/inputs";
 import { estimateMakerFee, formatTorEndpoint } from "../../lib/market-format";
 import { explorerTxUrl } from "../../lib/wallet-format";
@@ -13,11 +14,11 @@ type MakerStatus = "good" | "bad" | "unresponsive";
 
 function StatCard({ label, value, caption }: { label: string; value: React.ReactNode; caption: string }) {
   return (
-    <div className="flex min-h-[128px] flex-col justify-center gap-1.5 rounded-2xl border border-line bg-surface p-5">
+    <Card className="flex min-h-[128px] flex-col justify-center gap-1.5 border-line-strong p-5">
       <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">{label}</span>
       <div className="text-[26px] font-bold text-foreground">{value}</div>
       <p className="text-[13px] text-muted">{caption}</p>
-    </div>
+    </Card>
   );
 }
 
@@ -58,7 +59,7 @@ function TooltipButton({
 function FidelityBondModal({ maker, onClose }: { maker: Maker; onClose: () => void }) {
   const bond = maker.offer!;
   return (
-    <Modal title="Fidelity Bond Details" footer={<Button variant="ghost" onClick={onClose}>Close</Button>}>
+    <Modal title="Fidelity Bond Details" footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-line p-3.5">
           <span className="mb-2 block text-[11px] text-subtle">Tor Address</span>
@@ -117,7 +118,7 @@ function FeeCalculatorModal({ maker, onClose }: { maker: Maker; onClose: () => v
   return (
     <Modal
       title="Estimate swap cost"
-      footer={<Button variant="ghost" onClick={onClose}>Close</Button>}
+      footer={<Button variant="secondary" onClick={onClose}>Close</Button>}
     >
       <p className="truncate font-mono text-[11px] text-muted" title={maker.address}>
         {formatTorEndpoint(maker.address, 22, 12, true)}
@@ -216,7 +217,7 @@ function ConfirmRemoveModal({ address, onConfirm, onCancel, removing }: { addres
       title="Remove maker?"
       footer={
         <>
-          <Button variant="ghost" onClick={onCancel} disabled={removing}>Cancel</Button>
+          <Button variant="secondary" onClick={onCancel} disabled={removing}>Cancel</Button>
           <Button onClick={onConfirm} loading={removing}>Remove</Button>
         </>
       }
@@ -339,8 +340,8 @@ export function MarketPage() {
   }
 
   return (
-    <div className="p-8">
-      <header className="flex items-start justify-between gap-4">
+    <div className="flex h-full flex-col overflow-hidden p-8">
+      <header className="flex shrink-0 items-start justify-between gap-4">
         <div>
           <h1 className="text-[34px] font-bold leading-none tracking-tight text-foreground">Market</h1>
           <p className="mt-1.5 max-w-lg text-[13px] text-muted">
@@ -363,7 +364,7 @@ export function MarketPage() {
       </header>
 
       {(loading || refreshing) && (
-        <div className="mt-5 rounded-2xl border border-primary/35 bg-primary/10 px-4.5 py-3.5">
+        <div className="mt-5 shrink-0 rounded-2xl border border-primary/35 bg-primary/10 px-4.5 py-3.5">
           <div className="mb-3 flex items-center justify-between font-mono text-[11px] uppercase tracking-widest text-primary-hover">
             <span className="flex items-center gap-2">
               <RefreshCw size={16} strokeWidth={2} className="animate-spin" />
@@ -381,7 +382,7 @@ export function MarketPage() {
         </div>
       )}
 
-      <section className="mt-5 grid grid-cols-3 gap-3">
+      <section className="mt-5 grid shrink-0 grid-cols-3 gap-3">
         <StatCard label="Fidelity Locked" value={<SatsAmount sats={stats.totalFidelity} />} caption={`Across ${good.length} active makers.`} />
         <StatCard label="Total Liquidity" value={<SatsAmount sats={stats.totalLiquidity} />} caption="Spendable maker depth." />
         <StatCard
@@ -396,9 +397,9 @@ export function MarketPage() {
         />
       </section>
 
-      <section className="mt-3 flex min-h-[520px] flex-col overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="flex items-center justify-between gap-3.5 border-b border-line px-4.5 py-4">
-          <div className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-raised p-1">
+      <Card className="mt-3 flex min-h-0 flex-1 flex-col border-line-strong">
+        <div className="flex shrink-0 items-center justify-between gap-3.5 border-b border-line px-4.5 py-4">
+          <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.02] p-1">
             {(
               [
                 ["good", "Good Makers", good.length],
@@ -410,10 +411,17 @@ export function MarketPage() {
                 key={value}
                 type="button"
                 onClick={() => setTab(value)}
-                className={`min-h-[30px] whitespace-nowrap rounded-full px-3.5 text-[11.5px] font-medium transition-colors ${
-                  tab === value ? "bg-success/22 text-success shadow-[inset_0_0_0_1px_rgba(47,212,131,0.28)]" : "text-muted hover:text-foreground"
+                className={`relative min-h-[30px] whitespace-nowrap rounded-full px-3.5 text-[11.5px] font-medium transition-colors ${
+                  tab === value ? "text-success" : "text-muted hover:text-foreground"
                 }`}
               >
+                {tab === value && (
+                  <motion.span
+                    layoutId="tabglow-market-status"
+                    transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.6 }}
+                    className="absolute inset-0 -z-10 rounded-full bg-success/15 shadow-[0_0_12px_rgba(47,212,131,0.35)]"
+                  />
+                )}
                 {label} <span className={`ml-1 font-mono text-[10px] ${tab === value ? "text-success" : "text-subtle"}`}>{count}</span>
               </button>
             ))}
@@ -421,8 +429,8 @@ export function MarketPage() {
           <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">{displayed.length} {tab} offers</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="sticky top-0 z-[1] grid grid-cols-[minmax(150px,1.35fr)_repeat(5,minmax(74px,0.78fr))_minmax(122px,0.9fr)_minmax(250px,max-content)] gap-3 bg-surface px-7.5 pb-2.5 pt-3.5 font-mono text-[10px] uppercase tracking-widest text-subtle">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="sticky top-0 z-[1] grid grid-cols-[minmax(150px,1.35fr)_repeat(5,minmax(74px,0.78fr))_minmax(122px,0.9fr)_minmax(250px,max-content)] gap-3 bg-surface-raised px-7.5 pb-2.5 pt-3.5 font-mono text-[10px] uppercase tracking-widest text-subtle">
             <div>Tor Address</div>
             <div className="text-right">Base Fee</div>
             <div className="text-right">Liquidity Fee</div>
@@ -523,11 +531,11 @@ export function MarketPage() {
           </div>
         </div>
 
-        <div className="flex min-h-[54px] items-center justify-end border-t border-line px-4.5 py-3 font-mono text-[10.5px] uppercase tracking-widest text-subtle">
+        <div className="flex min-h-[54px] shrink-0 items-center justify-end border-t border-line px-4.5 py-3 font-mono text-[10.5px] uppercase tracking-widest text-subtle">
           Showing {displayed.length} {tab} offers · {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           <span className="hidden">{footerTick}</span>
         </div>
-      </section>
+      </Card>
 
       {feeCalcMaker && <FeeCalculatorModal maker={feeCalcMaker} onClose={() => setFeeCalcMaker(null)} />}
       {bondMaker && <FidelityBondModal maker={bondMaker} onClose={() => setBondMaker(null)} />}
