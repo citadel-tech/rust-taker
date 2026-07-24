@@ -149,6 +149,10 @@ export interface FeeEstimate {
   low: number;
 }
 
+export interface PriceEstimate {
+  usd: number;
+}
+
 // ---------------------------------------------------------------------------
 // Market / offerbook
 // ---------------------------------------------------------------------------

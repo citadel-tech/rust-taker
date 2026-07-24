@@ -400,6 +400,7 @@ export function SettingsPage() {
       {confirmReset && (
         <Modal
           title="Reset all settings?"
+          onClose={() => setConfirmReset(false)}
           footer={
             <>
               <Button variant="secondary" onClick={() => setConfirmReset(false)}>

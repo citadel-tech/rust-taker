@@ -352,6 +352,7 @@ export function SelectWalletStep({ onSuccess }: SelectWalletStepProps) {
                 ? "Can't reach Tor"
                 : "Couldn't unlock wallet"
           }
+          onClose={cancelFailure}
           footer={
             <>
               <Button variant="secondary" onClick={cancelFailure}>

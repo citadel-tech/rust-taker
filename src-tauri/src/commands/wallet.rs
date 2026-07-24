@@ -21,8 +21,8 @@ use crate::error::{from_wallet_join_error, AppError, ErrorCode};
 use crate::state::AppState;
 use crate::types::{
     AddressTypeDto, BalancesDto, ConnectionTypeDto, FeeEstimate, InitConfig, InitResult,
-    NewAddress, Outpoint, RpcSettings, SendResult, SwapLiquidity, TxSummary, UtxoEntry,
-    WalletInfo,
+    NewAddress, Outpoint, PriceEstimate, RpcSettings, SendResult, SwapLiquidity, TxSummary,
+    UtxoEntry, WalletInfo,
 };
 
 fn resolve_data_dir(data_dir: &Option<String>) -> PathBuf {
@@ -58,8 +58,9 @@ pub async fn is_wallet_encrypted(
         .map_err(AppError::from)
 }
 
-/// Non-wallet files the crate writes into the same directory (report/lock/temp).
-const NON_WALLET_SUFFIXES: &[&str] = &["_swap_report.json", ".lock", ".partial", ".tmp"];
+/// Non-wallet files written into the same directory (crate's report/lock/temp, plus our own
+/// last-issued-address sidecar).
+const NON_WALLET_SUFFIXES: &[&str] = &["_swap_report.json", "_last_address.json", ".lock", ".partial", ".tmp"];
 
 #[tauri::command]
 pub fn list_wallets(data_dir: Option<String>) -> Result<Vec<String>, AppError> {
@@ -182,10 +183,8 @@ pub fn get_wallet_info(state: tauri::State<'_, AppState>) -> Result<WalletInfo, 
     })
 }
 
-/// Restore from a backup file; must run before `init_taker` for that wallet
-/// name. Two failure modes: a bad password/file panics (caught via
-/// from_wallet_join_error); a real WalletError is swallowed by the crate, so
-/// we detect that case by checking the restored file actually exists.
+/// Restore from a backup file before `init_taker`. Bad password/file panics (caught via
+/// from_wallet_join_error); a real WalletError is swallowed by the crate, so check the file exists instead.
 #[tauri::command]
 pub async fn restore_wallet(
     data_dir: Option<String>,
@@ -281,22 +280,81 @@ pub async fn check_swap_liquidity(
     .map_err(AppError::internal)?
 }
 
+/// Last address issued per type, cached next to the wallet — the crate's
+/// `get_next_external_address` always derives+increments with no "peek" mode, so this is the only
+/// way to know what to re-offer instead of burning a fresh gap-limit index every call.
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+struct LastAddresses {
+    p2wpkh: Option<String>,
+    p2tr: Option<String>,
+}
+
+fn resolve_last_address_path(state: &AppState) -> Result<PathBuf, AppError> {
+    let data_dir = state
+        .data_dir
+        .read()?
+        .clone()
+        .ok_or_else(AppError::not_initialized)?;
+    let wallet = state
+        .wallet
+        .read()?
+        .clone()
+        .ok_or_else(AppError::not_initialized)?;
+    let wallet_name = wallet.read()?.get_name().to_string();
+    Ok(data_dir
+        .join("wallets")
+        .join(format!("{wallet_name}_last_address.json")))
+}
+
+fn load_last_addresses(path: &PathBuf) -> LastAddresses {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_last_addresses(path: &PathBuf, addrs: &LastAddresses) -> Result<(), AppError> {
+    let json = serde_json::to_string_pretty(addrs).map_err(AppError::internal)?;
+    std::fs::write(path, json)?;
+    Ok(())
+}
+
+/// Reuses the last address issued for this type until it actually receives a payment, matching
+/// the old app and standard HD-wallet gap-limit-safe behavior — repeat calls (page reload,
+/// clicking Generate again) shouldn't advance the derivation index for no reason.
 #[tauri::command]
 pub async fn get_new_address(
     state: tauri::State<'_, AppState>,
     address_type: AddressTypeDto,
 ) -> Result<NewAddress, AppError> {
     let wallet = get_wallet_handle(&state)?;
+    let path = resolve_last_address_path(&state)?;
     let (addr_type, label) = match address_type {
         AddressTypeDto::P2wpkh => (AddressType::P2WPKH, "p2wpkh"),
         AddressTypeDto::P2tr => (AddressType::P2TR, "p2tr"),
     };
     tauri::async_runtime::spawn_blocking(move || -> Result<NewAddress, AppError> {
-        let address = wallet.write()?.get_next_external_address(addr_type)?;
-        Ok(NewAddress {
-            address: address.to_string(),
-            address_type: label.to_string(),
-        })
+        let mut cached = load_last_addresses(&path);
+        let slot = match addr_type {
+            AddressType::P2WPKH => &mut cached.p2wpkh,
+            AddressType::P2TR => &mut cached.p2tr,
+        };
+
+        if let Some(existing) = slot.clone() {
+            let used = wallet.read()?.get_transactions(None, None)?.into_iter().any(|tx| {
+                tx.detail
+                    .address
+                    .is_some_and(|a| a.assume_checked().to_string() == existing)
+            });
+            if !used {
+                return Ok(NewAddress { address: existing, address_type: label.to_string() });
+            }
+        }
+
+        let address = wallet.write()?.get_next_external_address(addr_type)?.to_string();
+        *slot = Some(address.clone());
+        save_last_addresses(&path, &cached)?;
+        Ok(NewAddress { address, address_type: label.to_string() })
     })
     .await
     .map_err(AppError::internal)?
@@ -413,6 +471,26 @@ pub async fn estimate_fees() -> Result<FeeEstimate, AppError> {
                 .get_low_priority_rate()
                 .map_err(AppError::internal)?,
         })
+    })
+    .await
+    .map_err(AppError::internal)?
+}
+
+/// Hits mempool.space/api/v1/prices over clearnet, same as estimate_fees — public market data,
+/// not swap-sensitive, so it isn't routed through Tor.
+#[tauri::command]
+pub async fn get_btc_price() -> Result<PriceEstimate, AppError> {
+    tauri::async_runtime::spawn_blocking(|| -> Result<PriceEstimate, AppError> {
+        let response = minreq::get("https://mempool.space/api/v1/prices")
+            .with_timeout(10)
+            .send()
+            .map_err(AppError::internal)?;
+        let body: serde_json::Value = response.json().map_err(AppError::internal)?;
+        let usd = body
+            .get("USD")
+            .and_then(serde_json::Value::as_f64)
+            .ok_or_else(|| AppError::new(ErrorCode::Internal, "price response missing USD".to_string()))?;
+        Ok(PriceEstimate { usd })
     })
     .await
     .map_err(AppError::internal)?

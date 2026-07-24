@@ -3678,6 +3678,7 @@ version = "0.1.0"
 dependencies = [
  "coinswap",
  "log",
+ "minreq",
  "serde",
  "serde_json",
  "tauri",

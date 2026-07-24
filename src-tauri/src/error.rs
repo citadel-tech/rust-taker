@@ -120,10 +120,8 @@ impl<T> From<std::sync::PoisonError<T>> for AppError {
     }
 }
 
-/// Coinswap panics (not Result::Err) on a wrong wallet password or corrupt
-/// wallet file. spawn_blocking catches it as a JoinError; this classifies
-/// the panic message into a proper ErrorCode instead of a generic Internal.
-/// Always route wallet load/restore through spawn_blocking + this fn.
+/// Coinswap panics (not Result::Err) on a wrong password or corrupt wallet file; this classifies
+/// the spawn_blocking JoinError's panic message into a proper ErrorCode instead of a generic Internal.
 pub fn from_wallet_join_error(e: tauri::Error) -> AppError {
     let tauri::Error::JoinError(join_err) = e else {
         return AppError::internal(e);

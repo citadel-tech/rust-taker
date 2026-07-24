@@ -136,11 +136,7 @@ export function WalletPage() {
   const setLastUpdatedCache = useWalletCacheStore((s) => s.setLastUpdated);
 
   const [refreshing, setRefreshing] = useState(false);
-  // A fresh (non-stale) cache already means a real load happened recently, so
-  // skip the full loading screen and just refresh quietly behind the existing
-  // view. Past CACHE_TTL_MS the snapshot is treated as untrustworthy same as
-  // having none, so the loading screen reappears rather than flashing old
-  // balances as if they were current.
+  // Skip the full loading screen only if the cache is still fresh; past CACHE_TTL_MS it's treated as absent.
   const [initialLoading, setInitialLoading] = useState(() => isCacheStale(useWalletCacheStore.getState().updatedAt));
 
   const [utxoFilter, setUtxoFilter] = useState<UtxoFilter>("all");
@@ -173,11 +169,7 @@ export function WalletPage() {
     }
   }, [load, setLastUpdatedCache]);
 
-  // The wallet's balance/UTXO/tx cache is only fresh after a sync, so every
-  // mount needs the same sync-then-load sequence as the Refresh button — a
-  // plain load() reads stale/empty state. The full loading screen (with its
-  // min delay so it doesn't flash by unreadably) only runs when there's no
-  // cached data yet; later visits refresh quietly behind the cached view.
+  // Every mount needs sync-then-load, same as Refresh — a plain load() reads stale/empty state.
   useEffect(() => {
     if (!initialLoading) {
       void refresh();

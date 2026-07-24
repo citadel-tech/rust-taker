@@ -1,20 +1,16 @@
 import { AlertCircle, Check, Wallet } from "lucide-react";
+import { useEffect } from "react";
 import type { HTMLAttributes, ReactNode } from "react";
 
-// The default "box" everywhere: translucent + backdrop-blur so the page
-// behind actually shows through, plus a couple of soft blurred color blobs
-// and a top sheen — since our background is too flat on its own for
-// backdrop-blur alone to read as glass. Blobs sit at -z-10 so they stay
-// behind non-positioned children instead of painting over them.
-// No default border color here (Tailwind's cascade order for conflicting
-// utilities isn't something callers should have to fight) — pass one via
-// className, e.g. "border-line-strong".
+// Blur lives on its own layer, not this rounded/overflow-hidden div, to dodge a WebKit corner-seam
+// bug; `isolate` keeps descendants' negative z-index glows contained instead of escaping the card.
 export function Card({ className = "", children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`relative overflow-hidden rounded-card border bg-surface-raised/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl ${className}`}
+      className={`relative isolate overflow-hidden rounded-card border bg-surface-raised/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] ${className}`}
       {...props}
     >
+      <div className="pointer-events-none absolute inset-0 -z-20 backdrop-blur-2xl" />
       <div className="pointer-events-none absolute -left-10 -top-14 -z-10 h-48 w-48 rounded-full bg-primary/20 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-14 -right-10 -z-10 h-48 w-48 rounded-full bg-white/[0.07] blur-3xl" />
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-20 bg-gradient-to-b from-white/[0.08] to-transparent" />
@@ -27,12 +23,21 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  onClose: () => void;
 }
 
-export function Modal({ title, children, footer }: ModalProps) {
+export function Modal({ title, children, footer, onClose }: ModalProps) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-card border border-line-strong bg-surface p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-card border border-line-strong bg-surface p-6">
         <h3 className="font-header text-[15px] font-bold text-foreground">{title}</h3>
         <div className="mt-4 flex flex-col gap-3">{children}</div>
         {footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}

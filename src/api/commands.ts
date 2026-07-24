@@ -12,6 +12,7 @@ import type {
   OfferBookView,
   Outpoint,
   PortStatus,
+  PriceEstimate,
   RecoveryStatus,
   RpcSettings,
   SendResult,
@@ -139,6 +140,10 @@ export function syncWallet(): Promise<void> {
 
 export function estimateFees(): Promise<FeeEstimate> {
   return invoke("estimate_fees");
+}
+
+export function getBtcPrice(): Promise<PriceEstimate> {
+  return invoke("get_btc_price");
 }
 
 // ---------------------------------------------------------------------------

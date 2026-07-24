@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, Inbox, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, ExternalLink, Inbox, Info, RefreshCw, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getOffers, pollMaker, removeMaker, syncOfferbook } from "../../api/commands";
@@ -11,6 +11,43 @@ import { explorerTxUrl } from "../../lib/wallet-format";
 import { useToastStore } from "../../store/toast";
 
 type MakerStatus = "good" | "bad" | "unresponsive";
+
+// Muted (desaturated) variants of the success/warning/danger tokens, one per maker status.
+const STATUS_TAB_CLASS: Record<MakerStatus, { text: string; glow: string }> = {
+  good: { text: "text-[#45bd62]", glow: "bg-[#45bd62]/15 shadow-[0_0_12px_rgba(69,189,98,0.35)]" },
+  bad: { text: "text-[#e67376]", glow: "bg-[#e67376]/15 shadow-[0_0_12px_rgba(230,115,118,0.35)]" },
+  unresponsive: { text: "text-[#dcba69]", glow: "bg-[#dcba69]/15 shadow-[0_0_12px_rgba(220,186,105,0.35)]" },
+};
+
+// Address/Fee/Swap range/Fidelity Bond/Actions gate whether a maker is usable at all, so they stay
+// visible; the raw Base/Liquidity/Time fee breakdown is a detail tucked behind the expand toggle.
+const MAKER_TABLE_GRID = {
+  collapsed: "grid-cols-[minmax(150px,1.4fr)_repeat(3,minmax(90px,0.85fr))_minmax(122px,0.9fr)_minmax(250px,max-content)]",
+  expanded:
+    "grid-cols-[minmax(150px,1.35fr)_repeat(5,minmax(74px,0.78fr))_minmax(122px,0.9fr)_minmax(250px,max-content)]",
+};
+
+// Fewer columns (collapsed) means more room per column, so text can run larger; each range is also
+// fluid via clamp()'s vw term, so resizing the window scales it smoothly instead of at breakpoints.
+const MAKER_HEADER_TEXT = {
+  collapsed: "text-[clamp(9px,0.55vw,11px)]",
+  expanded: "text-[clamp(8px,0.45vw,9.5px)]",
+};
+const MAKER_ROW_TEXT = {
+  collapsed: "text-[clamp(11px,1vw,14px)]",
+  expanded: "text-[clamp(9px,0.75vw,11px)]",
+};
+// One height for both modes — sized for collapsed's larger text — so toggling the expand button
+// doesn't jump row height, only the column layout and font size change.
+const MAKER_ROW_HEIGHT = "min-h-[clamp(46px,4vw,58px)]";
+
+// Fixed scenario for the collapsed "Fee" column's ranking estimate — same formula as the Calculate
+// modal, just pinned to one baseline so every maker's number means the same thing.
+const FEE_REFERENCE_SCENARIO = { amountSats: 10_000, makerPosition: 1, totalMakers: 3 };
+const FEE_REFERENCE_TOOLTIP =
+  `Estimated total fee for a ${FEE_REFERENCE_SCENARIO.amountSats.toLocaleString()} sat swap as the ` +
+  `first hop of a ${FEE_REFERENCE_SCENARIO.totalMakers}-maker route (base + liquidity + time fee). ` +
+  "A fixed baseline for comparing makers, not your actual quote — use Calculate for that.";
 
 function StatCard({ label, value, caption }: { label: string; value: React.ReactNode; caption: string }) {
   return (
@@ -59,7 +96,7 @@ function TooltipButton({
 function FidelityBondModal({ maker, onClose }: { maker: Maker; onClose: () => void }) {
   const bond = maker.offer!;
   return (
-    <Modal title="Fidelity Bond Details" footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
+    <Modal title="Fidelity Bond Details" onClose={onClose} footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-line p-3.5">
           <span className="mb-2 block text-[11px] text-subtle">Tor Address</span>
@@ -118,6 +155,7 @@ function FeeCalculatorModal({ maker, onClose }: { maker: Maker; onClose: () => v
   return (
     <Modal
       title="Estimate swap cost"
+      onClose={onClose}
       footer={<Button variant="secondary" onClick={onClose}>Close</Button>}
     >
       <p className="truncate font-mono text-[11px] text-muted" title={maker.address}>
@@ -215,6 +253,7 @@ function ConfirmRemoveModal({ address, onConfirm, onCancel, removing }: { addres
   return (
     <Modal
       title="Remove maker?"
+      onClose={onCancel}
       footer={
         <>
           <Button variant="secondary" onClick={onCancel} disabled={removing}>Cancel</Button>
@@ -242,6 +281,7 @@ export function MarketPage() {
   const [removing, setRemoving] = useState(false);
   const [feeCalcMaker, setFeeCalcMaker] = useState<Maker | null>(null);
   const [bondMaker, setBondMaker] = useState<Maker | null>(null);
+  const [showAllColumns, setShowAllColumns] = useState(false);
   const [footerTick, setFooterTick] = useState(0);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pushToast = useToastStore((s) => s.push);
@@ -412,29 +452,57 @@ export function MarketPage() {
                 type="button"
                 onClick={() => setTab(value)}
                 className={`relative min-h-[30px] whitespace-nowrap rounded-full px-3.5 text-[11.5px] font-medium transition-colors ${
-                  tab === value ? "text-success" : "text-muted hover:text-foreground"
+                  tab === value ? STATUS_TAB_CLASS[value].text : "text-muted hover:text-foreground"
                 }`}
               >
                 {tab === value && (
                   <motion.span
                     layoutId="tabglow-market-status"
                     transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.6 }}
-                    className="absolute inset-0 -z-10 rounded-full bg-success/15 shadow-[0_0_12px_rgba(47,212,131,0.35)]"
+                    className={`absolute inset-0 -z-10 rounded-full ${STATUS_TAB_CLASS[value].glow}`}
                   />
                 )}
-                {label} <span className={`ml-1 font-mono text-[10px] ${tab === value ? "text-success" : "text-subtle"}`}>{count}</span>
+                {label}{" "}
+                <span className={`ml-1 font-mono text-[10px] ${tab === value ? STATUS_TAB_CLASS[value].text : "text-subtle"}`}>
+                  {count}
+                </span>
               </button>
             ))}
           </div>
-          <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">{displayed.length} {tab} offers</span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[10.5px] uppercase tracking-widest text-subtle">{displayed.length} {tab} offers</span>
+            <button
+              type="button"
+              onClick={() => setShowAllColumns((v) => !v)}
+              className="flex items-center gap-1 font-mono text-[10.5px] uppercase tracking-widest text-subtle transition-colors hover:text-foreground"
+            >
+              <ChevronDown size={12} strokeWidth={2.5} className={`transition-transform ${showAllColumns ? "rotate-180" : ""}`} />
+              {showAllColumns ? "Show less" : "Show all columns"}
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="sticky top-0 z-[1] grid grid-cols-[minmax(150px,1.35fr)_repeat(5,minmax(74px,0.78fr))_minmax(122px,0.9fr)_minmax(250px,max-content)] gap-3 bg-surface-raised px-7.5 pb-2.5 pt-3.5 font-mono text-[10px] uppercase tracking-widest text-subtle">
+          <div
+            className={`sticky top-0 z-1 grid ${
+              showAllColumns ? MAKER_TABLE_GRID.expanded : MAKER_TABLE_GRID.collapsed
+            } gap-3 bg-surface-raised px-7.5 pb-2.5 pt-3.5 font-mono ${
+              showAllColumns ? MAKER_HEADER_TEXT.expanded : MAKER_HEADER_TEXT.collapsed
+            } uppercase tracking-widest text-subtle`}
+          >
             <div>Tor Address</div>
-            <div className="text-right">Base Fee</div>
-            <div className="text-right">Liquidity Fee</div>
-            <div className="text-right">Time Rate</div>
+            {showAllColumns && <div className="text-right">Base Fee</div>}
+            {showAllColumns && <div className="text-right">Liquidity Fee</div>}
+            {showAllColumns && <div className="text-right">Time Rate</div>}
+            {!showAllColumns && (
+              <div className="group relative flex items-center justify-end gap-1">
+                Fee
+                <Info size={11} strokeWidth={2} />
+                <div className="pointer-events-none absolute right-0 top-[calc(100%+9px)] z-20 w-max max-w-65 rounded-lg border border-line-strong bg-bg px-2.5 py-2 text-left text-[11px] font-medium normal-case tracking-normal leading-snug text-foreground opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                  {FEE_REFERENCE_TOOLTIP}
+                </div>
+              </div>
+            )}
             <div className="text-right">Min Swap</div>
             <div className="text-right">Max Swap</div>
             <div className="text-right">Fidelity Bond</div>
@@ -465,30 +533,55 @@ export function MarketPage() {
               displayed.map((maker) => {
                 const offer = maker.offer;
                 const isPolling = pollingAddress === maker.address;
+                const referenceFee = offer
+                  ? estimateMakerFee({
+                      baseFee: offer.baseFee,
+                      amountRelativeFeePct: offer.amountRelativeFeePct,
+                      timeRelativeFeePct: offer.timeRelativeFeePct,
+                      amountSats: FEE_REFERENCE_SCENARIO.amountSats,
+                      makerPosition: FEE_REFERENCE_SCENARIO.makerPosition,
+                      totalMakers: FEE_REFERENCE_SCENARIO.totalMakers,
+                    }).totalFee
+                  : 0;
                 return (
                   <div
                     key={maker.address}
-                    className="grid min-h-[50px] grid-cols-[minmax(150px,1.35fr)_repeat(5,minmax(74px,0.78fr))_minmax(122px,0.9fr)_minmax(250px,max-content)] items-center gap-3 rounded-lg border border-line bg-surface-raised px-3 py-2.5 transition-colors hover:border-line-strong"
+                    className={`grid ${MAKER_ROW_HEIGHT} ${
+                      showAllColumns ? MAKER_TABLE_GRID.expanded : MAKER_TABLE_GRID.collapsed
+                    } items-center gap-3 rounded-lg border border-line bg-surface-raised px-3 py-2.5 font-mono ${
+                      showAllColumns ? MAKER_ROW_TEXT.expanded : MAKER_ROW_TEXT.collapsed
+                    } transition-colors hover:border-line-strong`}
                   >
-                    <div className="truncate font-mono text-[11px] text-muted" title={maker.address}>
+                    <div className="truncate text-muted" title={maker.address}>
                       {formatTorEndpoint(maker.address, 8, 6, true)}
                     </div>
-                    <div className="text-right font-mono text-[11px] font-semibold text-primary">
-                      {(offer?.baseFee ?? 0).toLocaleString()}
-                    </div>
-                    <div className="text-right font-mono text-[11px] font-semibold text-foreground">
-                      {(offer?.amountRelativeFeePct ?? 0).toFixed(3)}
-                    </div>
-                    <div className="text-right font-mono text-[11px] font-semibold text-foreground">
-                      {(offer?.timeRelativeFeePct ?? 0).toFixed(4)}
-                    </div>
-                    <div className="text-right font-mono text-[11px] font-semibold text-subtle">
+                    {showAllColumns && (
+                      <div className="text-right font-semibold text-primary">
+                        {(offer?.baseFee ?? 0).toLocaleString()}
+                      </div>
+                    )}
+                    {showAllColumns && (
+                      <div className="text-right font-semibold text-foreground">
+                        {(offer?.amountRelativeFeePct ?? 0).toFixed(3)}
+                      </div>
+                    )}
+                    {showAllColumns && (
+                      <div className="text-right font-semibold text-foreground">
+                        {(offer?.timeRelativeFeePct ?? 0).toFixed(4)}
+                      </div>
+                    )}
+                    {!showAllColumns && (
+                      <div className="text-right font-semibold text-primary">
+                        {Math.round(referenceFee).toLocaleString()}
+                      </div>
+                    )}
+                    <div className="text-right font-semibold text-subtle">
                       {(offer?.minSize ?? 0).toLocaleString()}
                     </div>
-                    <div className="text-right font-mono text-[11px] font-semibold text-subtle">
+                    <div className="text-right font-semibold text-subtle">
                       {(offer?.maxSize ?? 0).toLocaleString()}
                     </div>
-                    <div className="flex items-center justify-end gap-2 font-mono text-[11px] font-semibold text-foreground">
+                    <div className="flex items-center justify-end gap-2 font-semibold text-foreground">
                       <span>{offer && offer.bondAmountSats > 0 ? offer.bondAmountSats.toLocaleString() : "N/A"}</span>
                       {offer && offer.bondAmountSats > 0 && (
                         <button
@@ -509,13 +602,15 @@ export function MarketPage() {
                       >
                         Calculate
                       </TooltipButton>
-                      <TooltipButton
-                        tooltip="Ask this maker for a fresh offer now and update its availability and fee data."
-                        onClick={() => void poll(maker.address)}
-                        disabled={isPolling}
-                      >
-                        {isPolling ? "Polling..." : "Poll"}
-                      </TooltipButton>
+                      {maker.state !== "good" && (
+                        <TooltipButton
+                          tooltip="Ask this maker for a fresh offer now and update its availability and fee data."
+                          onClick={() => void poll(maker.address)}
+                          disabled={isPolling}
+                        >
+                          {isPolling ? "Polling..." : "Poll"}
+                        </TooltipButton>
+                      )}
                       <TooltipButton
                         tooltip="Remove this maker from your local offerbook so it no longer appears in market results."
                         onClick={() => setRemoveTarget(maker.address)}

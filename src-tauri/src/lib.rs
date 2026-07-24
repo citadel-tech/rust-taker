@@ -35,6 +35,7 @@ pub fn run() {
             wallet::send_to_address,
             wallet::sync_wallet,
             wallet::estimate_fees,
+            wallet::get_btc_price,
             // market / offerbook
             market::get_offers,
             market::sync_offerbook,

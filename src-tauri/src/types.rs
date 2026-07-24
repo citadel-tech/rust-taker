@@ -188,6 +188,12 @@ pub struct FeeEstimate {
     pub low: f64,
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PriceEstimate {
+    pub usd: f64,
+}
+
 // ---------------------------------------------------------------------------
 // Market / offerbook
 // ---------------------------------------------------------------------------
